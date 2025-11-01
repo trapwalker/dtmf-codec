@@ -7,12 +7,125 @@
     <style>
       body { font: 16px/1.4 system-ui, sans-serif; margin: 2rem; }
       .card { max-width: 720px; padding: 1rem 1.5rem; border: 1px solid #ddd; border-radius: 12px; }
-      #log { white-space: pre-wrap; margin-top: .75rem; background: #fafafa; border: 1px dashed #bbb; padding: .75rem; border-radius: 8px; min-height: 6rem; }
-      button { padding: .6rem 1rem; font-weight: 600; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+      #codesInput { 
+        width: 100%; 
+        box-sizing: border-box;
+        padding: .75rem; 
+        font-size: 18px; 
+        font-family: monospace;
+        border: 1px solid #ccc; 
+        border-radius: 8px;
+        margin-bottom: 1rem;
+      }
+      #log { 
+        white-space: pre-wrap; 
+        margin-top: .75rem; 
+        background: #fafafa; 
+        border: 1px dashed #bbb; 
+        padding: .75rem; 
+        border-radius: 8px; 
+        min-height: 6rem;
+        max-height: 20rem;
+        overflow-y: auto;
+      }
+      button { 
+        padding: .6rem 1rem; 
+        font-weight: 600; 
+        border-radius: 10px; 
+        border: 1px solid #ccc; 
+        background: #fff; 
+        cursor: pointer; 
+      }
+      button:hover { background: #f5f5f5; }
       button + button { margin-left: .5rem; }
       .row { margin-top: .8rem; }
-      label { display: inline-block; min-width: 200px; }
-      input { width: 5rem; }
+      .controls-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: .75rem;
+      }
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        cursor: pointer;
+      }
+      .checkbox-label input[type="checkbox"] {
+        width: 1.2rem;
+        height: 1.2rem;
+        cursor: pointer;
+      }
+      
+      /* Модальный диалог */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.5);
+      }
+      .modal.active {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-content {
+        background-color: #fff;
+        padding: 2rem;
+        border-radius: 12px;
+        max-width: 500px;
+        width: 90%;
+      }
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+      }
+      .modal-header h2 {
+        margin: 0;
+      }
+      .close {
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        color: #aaa;
+        border: none;
+        background: none;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .close:hover { color: #000; }
+      .modal-row {
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+      .modal-row label {
+        display: inline-block;
+        min-width: 180px;
+      }
+      .modal-row input {
+        width: 8rem;
+        padding: .5rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: .5rem;
+        margin-top: 1.5rem;
+      }
     </style>
   </head>
   <body>
@@ -20,30 +133,49 @@
       <h1>DTMF Detector Demo</h1>
       <p>Mic-based DTMF decoding in the browser.</p>
 
-      <div class="row">
-        <button id="start">Start</button>
-        <button id="stop">Stop</button>
-      </div>
+      <input type="text" id="codesInput" readonly placeholder="Принимаемые коды будут появляться здесь..." />
 
-      <div class="row">
-        <label>minToneStartMs</label>
-        <input id="minToneStartMs" type="number" value="50" />
-      </div>
-      <div class="row">
-        <label>minSilenceMs</label>
-        <input id="minSilenceMs" type="number" value="60" />
-      </div>
-      <div class="row">
-        <label>snrDb</label>
-        <input id="snrDb" type="number" value="8" />
-      </div>
-      <div class="row">
-        <label>sequenceTimeoutMs</label>
-        <input id="sequenceTimeoutMs" type="number" placeholder="auto (1000 if handler set)" />
+      <div class="controls-row">
+        <label class="checkbox-label">
+          <input type="checkbox" id="enabled" />
+          <span>Включить детектор</span>
+        </label>
+        <button id="settings">Настройки</button>
       </div>
 
       <div id="log"></div>
     </div>
+
+    <!-- Модальный диалог настроек -->
+    <div id="settingsModal" class="modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Настройки детектора</h2>
+          <button class="close" id="closeModal">&times;</button>
+        </div>
+        <div class="modal-row">
+          <label>minToneStartMs</label>
+          <input id="minToneStartMs" type="number" value="50" />
+        </div>
+        <div class="modal-row">
+          <label>minSilenceMs</label>
+          <input id="minSilenceMs" type="number" value="60" />
+        </div>
+        <div class="modal-row">
+          <label>snrDb</label>
+          <input id="snrDb" type="number" value="8" />
+        </div>
+        <div class="modal-row">
+          <label>sequenceTimeoutMs</label>
+          <input id="sequenceTimeoutMs" type="number" placeholder="auto (1000 if handler set)" />
+        </div>
+        <div class="modal-buttons">
+          <button id="cancelSettings">Отмена</button>
+          <button id="saveSettings">OK</button>
+        </div>
+      </div>
+    </div>
+
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

@@ -1,10 +1,11 @@
 /**
  * DTMF Detector — Browser-only decoder using Web Audio + Goertzel.
- * Emits on_tone_start(code) and on_tone_end(code, durationMs).
+ * Emits on_tone_start(code), on_tone_end(code, durationMs), and on_sequence_end(sequence).
  */
 
 export type ToneStartHandler = (code: string) => void;
 export type ToneEndHandler = (code: string, durationMs: number) => void;
+export type SequenceEndHandler = (sequence: string) => void;
 
 export interface DTMFDetectorOptions {
   /** Minimum stable detection time before firing on_tone_start (ms). Default 50 */
@@ -21,11 +22,15 @@ export interface DTMFDetectorOptions {
   dominanceDb?: number;
   /** Minimal RMS to consider the frame non-silent. Default 1e-5 */
   rmsFloor?: number;
+  /** Silence duration after tone sequence to fire on_sequence_end (ms). Default: 0 (disabled), or 1000 if on_sequence_end handler is set */
+  sequenceTimeoutMs?: number;
 }
 
 export default class DTMFDetector {
   public on_tone_start: ToneStartHandler = () => {};
   public on_tone_end:   ToneEndHandler   = () => {};
+  private readonly _defaultSequenceHandler: SequenceEndHandler = () => {};
+  public on_sequence_end: SequenceEndHandler = this._defaultSequenceHandler;
 
   private minToneStartMs: number;
   private minSilenceMs: number;
@@ -34,6 +39,8 @@ export default class DTMFDetector {
   private hopSize: number;
   private dominanceDb: number;
   private rmsFloor: number;
+  private sequenceTimeoutMs: number;
+  private _sequenceTimeoutMsExplicit: boolean;
 
   private _ctx: AudioContext | null = null;
   private _procNode: AudioWorkletNode | null = null;
@@ -47,6 +54,8 @@ export default class DTMFDetector {
   private _activeCode: string | null = null;
   private _activeMs = 0;
   private _silenceMs = 0;
+  private _sequenceBuffer: string = '';
+  private _sequenceSilenceMs = 0;
 
   private _lowFreqs = [697, 770, 852, 941];
   private _highFreqs = [1209, 1336, 1477, 1633];
@@ -67,6 +76,10 @@ export default class DTMFDetector {
     this.hopSize        = opts.hopSize        ?? 512;
     this.dominanceDb    = opts.dominanceDb    ?? 6;
     this.rmsFloor       = opts.rmsFloor       ?? 1e-5;
+    
+    // Сохраняем, был ли sequenceTimeoutMs явно указан
+    this._sequenceTimeoutMsExplicit = opts.sequenceTimeoutMs !== undefined;
+    this.sequenceTimeoutMs = opts.sequenceTimeoutMs ?? 0;
 
     this._window = new Float32Array(this.frameSize);
     for (let n = 0; n < this.frameSize; n++) {
@@ -80,6 +93,15 @@ export default class DTMFDetector {
     this._ctx = new (window.AudioContext || (window as any).webkitAudioContext)({ latencyHint: 'interactive' });
     this._sampleRate = this._ctx.sampleRate;
     this._frameDurationMs = 1000 * (this.hopSize / this._sampleRate);
+    
+    // Если обработчик задан и sequenceTimeoutMs не был явно указан, использовать значение по умолчанию 1 секунда
+    if (!this._sequenceTimeoutMsExplicit && this.on_sequence_end !== this._defaultSequenceHandler) {
+      this.sequenceTimeoutMs = 1000;
+    }
+    
+    // Сброс буфера последовательности при старте
+    this._sequenceBuffer = '';
+    this._sequenceSilenceMs = 0;
 
     this._mic = await navigator.mediaDevices.getUserMedia({
       audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
@@ -120,7 +142,12 @@ export default class DTMFDetector {
       const code = this._activeCode; const dur = this._activeMs;
       this._activeCode = null; this._activeMs = 0; this._silenceMs = 0; this._pendingCode = null; this._pendingMs = 0;
       try { this.on_tone_end(code, dur); } catch {}
+      this._addToSequence(code);
     }
+    
+    // Очистить буфер последовательности
+    this._sequenceBuffer = '';
+    this._sequenceSilenceMs = 0;
   }
 
   private _ensureWorkletModule(): Promise<void> {
@@ -201,7 +228,9 @@ export default class DTMFDetector {
     const frameMs = this._frameDurationMs;
 
     if (this._activeCode === code) {
-      this._activeMs += frameMs; this._silenceMs = 0; return;
+      this._activeMs += frameMs; this._silenceMs = 0; 
+      this._sequenceSilenceMs = 0; // Сброс таймера паузы при активном тоне
+      return;
     }
 
     if (this._activeCode && this._activeCode !== code) {
@@ -210,6 +239,8 @@ export default class DTMFDetector {
         const oldCode = this._activeCode!, oldDur = this._activeMs;
         this._activeCode = code; this._activeMs = 0; this._silenceMs = 0; this._pendingCode = null; this._pendingMs = 0;
         try { this.on_tone_end(oldCode, oldDur); } catch {}
+        this._addToSequence(oldCode);
+        this._sequenceSilenceMs = 0; // Сброс таймера паузы при переходе к новому тону
         try { this.on_tone_start(code); } catch {}
       }
       return;
@@ -218,6 +249,7 @@ export default class DTMFDetector {
     if (this._pendingCode === code) this._pendingMs += frameMs; else { this._pendingCode = code; this._pendingMs = frameMs; }
     if (this._pendingMs >= this.minToneStartMs) {
       this._activeCode = code; this._activeMs = 0; this._silenceMs = 0; this._pendingCode = null; this._pendingMs = 0;
+      this._sequenceSilenceMs = 0; // Сброс таймера паузы при начале нового тона
       try { this.on_tone_start(code); } catch {}
     }
   }
@@ -230,10 +262,27 @@ export default class DTMFDetector {
         const code = this._activeCode, dur = this._activeMs;
         this._activeCode = null; this._activeMs = 0; this._silenceMs = 0; this._pendingCode = null; this._pendingMs = 0;
         try { this.on_tone_end(code!, dur); } catch {}
+        this._addToSequence(code!);
+        this._sequenceSilenceMs = 0; // Начинаем отсчёт паузы после завершения тона
       }
     } else {
       this._pendingCode = null; this._pendingMs = 0;
+      
+      // Проверяем паузу после серии тонов
+      if (this.sequenceTimeoutMs > 0 && this._sequenceBuffer.length > 0) {
+        this._sequenceSilenceMs += frameMs;
+        if (this._sequenceSilenceMs >= this.sequenceTimeoutMs) {
+          const sequence = this._sequenceBuffer;
+          this._sequenceBuffer = '';
+          this._sequenceSilenceMs = 0;
+          try { this.on_sequence_end(sequence); } catch {}
+        }
+      }
     }
+  }
+  
+  private _addToSequence(code: string) {
+    this._sequenceBuffer += code;
   }
 
   private _goertzelGroup(frame: Float32Array, freqs: number[]) {

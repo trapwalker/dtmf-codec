@@ -288,7 +288,7 @@ export default class DTMFDetector {
   private _goertzelGroup(frame: Float32Array, freqs: number[]) {
     const sr = this._sampleRate, N = this.frameSize;
     return freqs.map((f) => {
-      const k = Math.round(0.5 + (N * f) / sr);
+      const k = Math.round((N * f) / sr);
       const w = (2 * Math.PI / N) * k;
       const cosine = Math.cos(w), sine = Math.sin(w);
       const coeff = 2 * cosine;

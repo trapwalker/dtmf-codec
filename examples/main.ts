@@ -1,4 +1,4 @@
-import DTMFDetector from '../dist/index.esm.js';
+import DTMFDetector from '../dist/index.js';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 const log = (msg: string) => {

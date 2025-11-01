@@ -1,0 +1,46 @@
+html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTMF Detector Demo</title>
+    <style>
+      body { font: 16px/1.4 system-ui, sans-serif; margin: 2rem; }
+      .card { max-width: 720px; padding: 1rem 1.5rem; border: 1px solid #ddd; border-radius: 12px; }
+      #log { white-space: pre-wrap; margin-top: .75rem; background: #fafafa; border: 1px dashed #bbb; padding: .75rem; border-radius: 8px; min-height: 6rem; }
+      button { padding: .6rem 1rem; font-weight: 600; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+      button + button { margin-left: .5rem; }
+      .row { margin-top: .8rem; }
+      label { display: inline-block; min-width: 200px; }
+      input { width: 5rem; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>DTMF Detector Demo</h1>
+      <p>Mic-based DTMF decoding in the browser.</p>
+
+      <div class="row">
+        <button id="start">Start</button>
+        <button id="stop">Stop</button>
+      </div>
+
+      <div class="row">
+        <label>minToneStartMs</label>
+        <input id="minToneStartMs" type="number" value="50" />
+      </div>
+      <div class="row">
+        <label>minSilenceMs</label>
+        <input id="minSilenceMs" type="number" value="60" />
+      </div>
+      <div class="row">
+        <label>snrDb</label>
+        <input id="snrDb" type="number" value="8" />
+      </div>
+
+      <div id="log"></div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

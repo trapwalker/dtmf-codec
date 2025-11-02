@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DTMF Generator Demo</title>
+    <style>
+      body { 
+        font: 16px/1.4 system-ui, sans-serif; 
+        margin: 2rem; 
+        display: flex;
+        justify-content: center;
+      }
+      .card { 
+        max-width: 400px; 
+        width: 100%;
+        padding: 1.5rem; 
+        border: 1px solid #ddd; 
+        border-radius: 12px; 
+      }
+      h1 { margin-top: 0; }
+      .input-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+      }
+      #codesInput { 
+        flex: 1;
+        padding: .75rem; 
+        font-size: 18px; 
+        font-family: monospace;
+        border: 1px solid #ccc; 
+        border-radius: 8px;
+      }
+      .btn-icon {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+      .btn-icon:hover { background: #f5f5f5; }
+      .btn-icon:active { background: #e0e0e0; }
+      .keypad {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr) 1fr;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+      }
+      .key {
+        aspect-ratio: 1;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        background: #fff;
+        font-size: 20px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .key:hover { background: #f5f5f5; }
+      .key:active { background: #e0e0e0; }
+      .key-letter {
+        aspect-ratio: 1;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 10px;
+        background: #fff;
+        font-size: 18px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .key-letter:hover { background: #f5f5f5; }
+      .key-letter:active { background: #e0e0e0; }
+      .key-letter[data-code="A"] { grid-column: 4; grid-row: 1; }
+      .key-letter[data-code="B"] { grid-column: 4; grid-row: 2; }
+      .key-letter[data-code="C"] { grid-column: 4; grid-row: 3; }
+      .key-letter[data-code="D"] { grid-column: 4; grid-row: 4; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>DTMF Generator</h1>
+      <p>Введите последовательность DTMF кодов или используйте экранную клавиатуру</p>
+
+      <div class="input-row">
+        <input type="text" id="codesInput" placeholder="Коды..." />
+        <button class="btn-icon" id="playBtn" title="Воспроизвести">▶</button>
+        <button class="btn-icon" id="clearBtn" title="Очистить">✕</button>
+      </div>
+
+      <div class="keypad">
+        <button class="key" data-code="1">1</button>
+        <button class="key" data-code="2">2</button>
+        <button class="key" data-code="3">3</button>
+        <button class="key-letter" data-code="A">A</button>
+        <button class="key" data-code="4">4</button>
+        <button class="key" data-code="5">5</button>
+        <button class="key" data-code="6">6</button>
+        <button class="key-letter" data-code="B">B</button>
+        <button class="key" data-code="7">7</button>
+        <button class="key" data-code="8">8</button>
+        <button class="key" data-code="9">9</button>
+        <button class="key-letter" data-code="C">C</button>
+        <button class="key" data-code="*">*</button>
+        <button class="key" data-code="0">0</button>
+        <button class="key" data-code="#">#</button>
+        <button class="key-letter" data-code="D">D</button>
+      </div>
+    </div>
+
+    <script type="module" src="./generator.ts"></script>
+  </body>
+</html>

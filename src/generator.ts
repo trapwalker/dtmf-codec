@@ -23,6 +23,10 @@ export class DTMFGenerator {
 
   private _ctx: AudioContext | null = null;
   
+  // Активные источники звука для возможности остановки (неблокирующий режим)
+  private _activeSources: AudioBufferSourceNode[] = [];
+  private _activeTimeouts: number[] = [];
+  
   // Маппинг символов DTMF на пары частот [низкая, высокая]
   private readonly _freqMap = { ...DTMF_CODE_TO_FREQUENCIES };
 
@@ -33,9 +37,28 @@ export class DTMFGenerator {
   }
 
   /**
+   * Останавливает все активные источники звука (для неблокирующего режима)
+   */
+  stop(): void {
+    // Останавливаем все активные источники
+    this._activeSources.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Источник уже остановлен, игнорируем ошибку
+      }
+    });
+    this._activeSources = [];
+    
+    // Очищаем все запланированные таймеры
+    this._activeTimeouts.forEach(timeout => clearTimeout(timeout));
+    this._activeTimeouts = [];
+  }
+
+  /**
    * Синтез DTMF кода или последовательности кодов
    * 
-   * @param codes - строка из одного или более символов DTMF (0-9, *, #, A-D)
+   * @param codes - строка из одного или более символов DTMF (0-9, *, #, A-D). Пустая строка или пробел останавливает текущее воспроизведение
    * @param toneDurationMs - длительность одного кода в миллисекундах (по умолчанию из defaultToneDurationMs)
    * @param pauseMs - пауза между кодами в миллисекундах (по умолчанию из defaultPauseMs)
    * @param volume - громкость в процентах 0-100 (по умолчанию из defaultVolume)
@@ -49,7 +72,14 @@ export class DTMFGenerator {
     volume?: number,
     blocking: boolean = false
   ): Promise<void> {
-    if (!codes || codes.length === 0) {
+    // Очистка пробелов
+    const trimmedCodes = codes?.trim() || '';
+    
+    // Если пустая строка или только пробелы - останавливаем текущее воспроизведение
+    if (!trimmedCodes || trimmedCodes.length === 0) {
+      if (!blocking) {
+        this.stop();
+      }
       return;
     }
 
@@ -60,6 +90,11 @@ export class DTMFGenerator {
     // Инициализируем AudioContext при первом использовании
     if (!this._ctx) {
       this._ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
+    // Если неблокирующий режим, останавливаем предыдущее воспроизведение
+    if (!blocking) {
+      this.stop();
     }
 
     // Функция для генерации одного тона
@@ -99,7 +134,21 @@ export class DTMFGenerator {
         source.connect(gainNode);
         gainNode.connect(this._ctx!.destination);
         
-        source.onended = () => resolve();
+        // В неблокирующем режиме сохраняем источник для возможности остановки
+        if (!blocking) {
+          this._activeSources.push(source);
+        }
+        
+        source.onended = () => {
+          // Удаляем источник из активных при завершении
+          if (!blocking) {
+            const index = this._activeSources.indexOf(source);
+            if (index > -1) {
+              this._activeSources.splice(index, 1);
+            }
+          }
+          resolve();
+        };
         source.start();
       });
     };
@@ -111,21 +160,22 @@ export class DTMFGenerator {
 
     if (blocking) {
       // Блокирующий режим: играем тоны последовательно с паузами
-      for (let i = 0; i < codes.length; i++) {
-        await playTone(codes[i]);
-        if (i < codes.length - 1 && pause > 0) {
+      for (let i = 0; i < trimmedCodes.length; i++) {
+        await playTone(trimmedCodes[i]);
+        if (i < trimmedCodes.length - 1 && pause > 0) {
           await wait(pause);
         }
       }
     } else {
       // Неблокирующий режим: запускаем все тоны с задержками, но не ждем
-      for (let i = 0; i < codes.length; i++) {
+      for (let i = 0; i < trimmedCodes.length; i++) {
         const delay = i * (duration + pause);
-        setTimeout(() => {
-          playTone(codes[i]).catch(() => {
+        const timeoutId = window.setTimeout(() => {
+          playTone(trimmedCodes[i]).catch(() => {
             // Игнорируем ошибки в неблокирующем режиме
           });
         }, delay);
+        this._activeTimeouts.push(timeoutId);
       }
     }
   }

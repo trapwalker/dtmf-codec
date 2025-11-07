@@ -84,6 +84,11 @@ export default class DTMFDetector {
     }
   }
 
+  /** Check if detector is currently running */
+  get isRunning(): boolean {
+    return this._running;
+  }
+
   /** Ask mic permission and start decoding */
   async start(): Promise<void> {
     if (this._running) return;

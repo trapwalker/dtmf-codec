@@ -126,12 +126,109 @@
         gap: .5rem;
         margin-top: 1.5rem;
       }
+
+      /* Генератор DTMF */
+      .generator-section {
+        margin-top: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .generator-toggle {
+        display: flex;
+        align-items: center;
+        gap: .5rem;
+        cursor: pointer;
+        user-select: none;
+        margin-bottom: 1rem;
+      }
+      .generator-toggle-icon {
+        transition: transform 0.2s;
+        font-size: 14px;
+      }
+      .generator-toggle-icon.expanded {
+        transform: rotate(90deg);
+      }
+      .generator-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+      }
+      .generator-content.expanded {
+        max-height: 500px;
+      }
+      .generator-input-row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      #generatorCodesInput {
+        flex: 1;
+        padding: .75rem;
+        font-size: 18px;
+        font-family: monospace;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+      }
+      .btn-icon {
+        width: 44px;
+        height: 44px;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+      }
+      .btn-icon:hover { background: #f5f5f5; }
+      .btn-icon:active { background: #e0e0e0; }
+      .keypad {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.4rem;
+        max-width: 250px;
+      }
+      .key, .key-letter {
+        aspect-ratio: 1;
+        padding: 0;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        min-height: 0;
+      }
+      .key:hover, .key-letter:hover { background: #f5f5f5; }
+      .key:active, .key-letter:active { background: #e0e0e0; }
+
+      /* Индикатор микрофона */
+      .mic-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 20px;
+        margin-left: 1rem;
+      }
+      .mic-icon {
+        opacity: 0.3;
+        transition: opacity 0.3s;
+      }
+      .mic-icon.active {
+        opacity: 1;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
     </style>
   </head>
   <body>
     <div class="card">
       <h1>DTMF Detector Demo</h1>
-      <p>Mic-based DTMF decoding in the browser. <a href="generator.html">DTMF Generator →</a></p>
+      <p>Mic-based DTMF decoding in the browser.</p>
 
       <input type="text" id="codesInput" readonly placeholder="Принимаемые коды будут появляться здесь..." />
 
@@ -140,7 +237,42 @@
           <input type="checkbox" id="enabled" />
           <span>Включить детектор</span>
         </label>
+        <span class="mic-indicator">
+          <span class="mic-icon" id="micIcon">🎤</span>
+        </span>
         <button id="settings">Настройки</button>
+      </div>
+
+      <div class="generator-section">
+        <div class="generator-toggle" id="generatorToggle">
+          <span class="generator-toggle-icon">▶</span>
+          <span>DTMF Generator</span>
+        </div>
+        <div class="generator-content" id="generatorContent">
+          <div class="generator-input-row">
+            <input type="text" id="generatorCodesInput" placeholder="Коды..." />
+            <button class="btn-icon" id="playBtn" title="Воспроизвести">▶</button>
+            <button class="btn-icon" id="clearBtn" title="Очистить">✕</button>
+          </div>
+          <div class="keypad">
+            <button class="key" data-code="1">1</button>
+            <button class="key" data-code="2">2</button>
+            <button class="key" data-code="3">3</button>
+            <button class="key-letter" data-code="A">A</button>
+            <button class="key" data-code="4">4</button>
+            <button class="key" data-code="5">5</button>
+            <button class="key" data-code="6">6</button>
+            <button class="key-letter" data-code="B">B</button>
+            <button class="key" data-code="7">7</button>
+            <button class="key" data-code="8">8</button>
+            <button class="key" data-code="9">9</button>
+            <button class="key-letter" data-code="C">C</button>
+            <button class="key" data-code="*">*</button>
+            <button class="key" data-code="0">0</button>
+            <button class="key" data-code="#">#</button>
+            <button class="key-letter" data-code="D">D</button>
+          </div>
+        </div>
       </div>
 
       <div id="log"></div>

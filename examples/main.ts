@@ -1,4 +1,5 @@
 import DTMFDetector from '../dist/index.js';
+import { DTMFGenerator } from '../dist/index.js';
 
 const $ = (id: string) => document.getElementById(id) as HTMLElement;
 
@@ -7,6 +8,16 @@ let codesInput: HTMLInputElement;
 let logElement: HTMLElement;
 let enabledCheckbox: HTMLInputElement;
 let settingsModal: HTMLElement;
+let micIcon: HTMLElement;
+
+// Генератор DTMF
+const generator = new DTMFGenerator({
+  defaultToneDurationMs: 100,
+  defaultPauseMs: 20,
+});
+let generatorCodesInput: HTMLInputElement;
+let generatorContent: HTMLElement;
+let generatorToggleIcon: HTMLElement;
 
 // Функция для добавления записи в журнал (сверху)
 const log = (msg: string) => {
@@ -37,13 +48,13 @@ async function createDetector(): Promise<void> {
   }
 
   det = new (DTMFDetector as any)(opts);
-  
+
   // По on_tone_start добавляем код в текстовое поле
   if (det) {
     det.on_tone_start = (c: string) => {
       codesInput.value += c;
     };
-    
+
     // По on_sequence_end добавляем sequence в журнал и очищаем поле
     det.on_sequence_end = (sequence: string) => {
       log(`sequence: "${sequence}"`);
@@ -54,10 +65,12 @@ async function createDetector(): Promise<void> {
     if (enabledCheckbox.checked) {
       try {
         await det.start();
+        micIcon.classList.add('active');
       } catch (e) {
         log('Start failed: ' + (e as Error).message);
         det = null;
         enabledCheckbox.checked = false;
+        micIcon.classList.remove('active');
       }
     }
   }
@@ -65,10 +78,16 @@ async function createDetector(): Promise<void> {
 
 // Инициализация элементов
 document.addEventListener('DOMContentLoaded', async () => {
+  // Сначала инициализируем ВСЕ элементы
   codesInput = $('codesInput') as HTMLInputElement;
   logElement = $('log');
   enabledCheckbox = $('enabled') as HTMLInputElement;
   settingsModal = $('settingsModal');
+  micIcon = $('micIcon');
+  generatorCodesInput = $('generatorCodesInput') as HTMLInputElement;
+  generatorContent = $('generatorContent');
+  const generatorToggleEl = $('generatorToggle');
+  generatorToggleIcon = generatorToggleEl.querySelector('.generator-toggle-icon') as HTMLElement;
 
   // Обработчик чекбокса включения/выключения
   enabledCheckbox.onchange = async () => {
@@ -78,14 +97,17 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         try {
           await det.start();
+          micIcon.classList.add('active');
         } catch (e) {
           log('Start failed: ' + (e as Error).message);
           enabledCheckbox.checked = false;
+          micIcon.classList.remove('active');
         }
       }
     } else {
       if (det) {
         await det.stop();
+        micIcon.classList.remove('active');
       }
     }
   };
@@ -108,6 +130,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   ($('saveSettings') as HTMLButtonElement).onclick = async () => {
     const wasEnabled = enabledCheckbox.checked;
     enabledCheckbox.checked = false;
+    micIcon.classList.remove('active');
     if (det) {
       await det.stop();
     }
@@ -116,9 +139,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       enabledCheckbox.checked = true;
       try {
         await det.start();
+        micIcon.classList.add('active');
       } catch (e) {
         log('Start failed: ' + (e as Error).message);
         enabledCheckbox.checked = false;
+        micIcon.classList.remove('active');
       }
     }
     settingsModal.classList.remove('active');
@@ -131,7 +156,61 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   };
 
-  // Автостарт детектора при открытии страницы
-  enabledCheckbox.checked = true;
+  // Обработчик переключения видимости генератора
+  generatorToggleEl.onclick = () => {
+    const isExpanded = generatorContent.classList.contains('expanded');
+    if (isExpanded) {
+      generatorContent.classList.remove('expanded');
+      generatorToggleIcon.classList.remove('expanded');
+    } else {
+      generatorContent.classList.add('expanded');
+      generatorToggleIcon.classList.add('expanded');
+    }
+  };
+
+  // Функция обработки нажатия клавиши генератора
+  const handleKeyPress = (e: Event) => {
+    const target = e.target as HTMLElement;
+    const code = target.dataset.code;
+
+    if (code && (target.classList.contains('key') || target.classList.contains('key-letter'))) {
+      // Добавляем код в поле ввода
+      generatorCodesInput.value += code;
+      // Воспроизводим звук
+      generator.synthesize(code, 5000);
+    }
+  };
+
+  // Функция обработки отпускания клавиши генератора
+  const handleKeyRelease = () => {
+    // Останавливаем звук при отпускании
+    generator.synthesize('');
+  };
+
+  // Обработчики нажатия для клавиш
+  document.addEventListener('mousedown', handleKeyPress);
+  document.addEventListener('touchstart', handleKeyPress);
+
+  // Обработчики отпускания для клавиш
+  document.addEventListener('mouseup', handleKeyRelease);
+  document.addEventListener('touchend', handleKeyRelease);
+
+  // Воспроизведение всей последовательности
+  ($('playBtn') as HTMLButtonElement).onclick = () => {
+    const codes = generatorCodesInput.value;
+    if (codes) {
+      generator.synthesize(codes, undefined, undefined, undefined, true);
+    }
+  };
+
+  // Очистка поля ввода и остановка звука
+  ($('clearBtn') as HTMLButtonElement).onclick = () => {
+    generatorCodesInput.value = '';
+    generator.synthesize(''); // Останавливаем текущее воспроизведение
+  };
+
+  // Создаем детектор заранее (но не запускаем автоматически)
   await createDetector();
+
+  log('Включите детектор с помощью чекбокса для начала работы');
 });

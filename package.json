@@ -24,7 +24,9 @@
         "build": "tsup",
         "dev": "tsup --watch",
         "clean": "rimraf dist",
-        "demo": "vite examples"
+        "demo": "vite examples",
+        "demo:host": "vite examples --host",
+        "demo:host:tunnel": "__VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS=.tuna.am,.ngrok.io,.ngrok-free.app,.localtest.me,.loca.lt vite examples --host"
     },
     "devDependencies": {
         "rimraf": "^6.0.1",
